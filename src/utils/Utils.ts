@@ -14,7 +14,7 @@ import fetch from 'isomorphic-unfetch';
 import YTSR, {Video} from 'ytsr';
 import getSong from "apple-music-metadata";
 import getPlayList from "apple-music-metadata"
-import {Client, Playlist as IPlaylist, Video as IVideo, VideoCompact} from "youtubei";
+import {Client, Playlist as IPlaylist, Video as IVideo, PlaylistVideos, VideoCompact} from "youtubei";
 import {ChannelType, GuildChannel} from "discord.js";
 
 let YouTube = new Client();
@@ -71,7 +71,7 @@ export class Utils {
      * @param {number} [Limit=1]
      * @return {Promise<Song[]>}
      */
-    static async search(Search: string, SOptions: PlayOptions = DefaultPlayOptions, Queue: Queue, Limit: number = 3): Promise<Song[]> {
+    static async search(Search: string, SOptions: PlayOptions = DefaultPlayOptions, Queue: Queue, Limit: number = 5): Promise<Song[]> {
         SOptions = Object.assign({}, DefaultPlayOptions, SOptions);
         let Filters;
 
@@ -358,6 +358,11 @@ export class Utils {
             if (YouTubeResultData instanceof IPlaylist && YouTubeResultData.videoCount > 100 && (Limit === -1 || Limit > 100))
                 await YouTubeResultData.videos.next(Math.floor((Limit === -1 || Limit > YouTubeResultData.videoCount ? YouTubeResultData.videoCount : Limit - 1) / 100));
 
+            if (YouTubeResultData.videos instanceof PlaylistVideos){
+                //Needs VideoCompact[] for map to work below
+                YouTubeResultData.videos = YouTubeResultData.videos.items
+            }
+
             YouTubeResult.songs = YouTubeResultData.videos.map((video: VideoCompact, index: number) => {
                 if (Limit !== -1 && index >= Limit)
                     return null;
@@ -372,7 +377,7 @@ export class Utils {
                 song.data = SOptions.data;
                 return song;
             })
-                .filter((V: Song): V is Song => V !== null);
+                .filter((V: Song|null): V is Song => V !== null);
 
             if (YouTubeResult.songs.length === 0)
                 throw DMPErrors.INVALID_PLAYLIST;

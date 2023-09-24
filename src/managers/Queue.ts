@@ -266,7 +266,7 @@ export class Queue<T = unknown> {
         let streamSong;
         let i = 0;
 
-        while (!streamSong && i < 3) {
+        while (!streamSong && i < 5) {
             streamSong = await stream(song.url, {
                 seek: options.seek ? options.seek / 1000 : 0,
                 quality: quality!.toLowerCase() === 'low' ? 1 : 2,

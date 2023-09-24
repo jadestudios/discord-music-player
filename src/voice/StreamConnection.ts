@@ -64,7 +64,7 @@ export class StreamConnection extends EventEmitter {
                             // Attempting to re-join the voice channel, after possibly changing channels
                             await entersState(this.connection, VoiceConnectionStatus.Connecting, 5_000);
                         } catch {
-                            // It was mannually disconnected and the connection is closed in Player.js _voiceUpdate
+                            // It was manually disconnected and the connection is closed in Player.js _voiceUpdate
                         }
                     } else if (this.connection.rejoinAttempts < 5) {
                         await wait((this.connection.rejoinAttempts + 1) * 5_000);
