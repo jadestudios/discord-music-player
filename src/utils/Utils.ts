@@ -11,11 +11,10 @@ import {
     Song,
 } from "..";
 import fetch from 'isomorphic-unfetch';
-import YTSR, {Video} from 'ytsr';
-import getSong from "apple-music-metadata";
-import getPlayList from "apple-music-metadata"
-import {Client, Playlist as IPlaylist, Video as IVideo, PlaylistVideos, VideoCompact} from "youtubei";
-import {ChannelType, GuildChannel} from "discord.js";
+import YTSR, { Video } from 'ytsr';
+import { getApple, AppleTrack, AppleTrackList } from "./MD_Apple";
+import { Client, Playlist as IPlaylist, Video as IVideo, PlaylistVideos, VideoCompact } from "youtubei";
+import { ChannelType, GuildChannel } from "discord.js";
 
 let YouTube = new Client();
 const { getData, getPreview, getTracks, getDetails } = require('spotify-url-info')(fetch)
@@ -29,7 +28,7 @@ export class Utils {
         YouTubePlaylistID: /[&?]list=([^&]+)/,
         Spotify: /https?:\/\/(?:embed\.|open\.)(?:spotify\.com\/)(?:track\/|\?uri=spotify:track:)((\w|-)+)(?:(?=\?)(?:[?&]foo=(\d*)(?=[&#]|$)|(?![?&]foo=)[^#])+)?(?=#|$)/,
         SpotifyPlaylist: /https?:\/\/(?:embed\.|open\.)(?:spotify\.com\/)(?:(album|playlist)\/|\?uri=spotify:playlist:)((\w|-)+)(?:(?=\?)(?:[?&]foo=(\d*)(?=[&#]|$)|(?![?&]foo=)[^#])+)?(?=#|$)/,
-        Apple: /https?:\/\/music\.apple\.com\/.+?\/.+?\/(.+?)\//,
+        Apple: /https?:\/\/music\.apple\.com\/.+?\/.+?\/(.+?)\//, //TODO: FIX Regex here and not in MD_APPLE
         ApplePlaylist: /https?:\/\/music\.apple\.com\/.+?\/.+?\/(.+?)\//,
     }
 
@@ -159,15 +158,17 @@ export class Utils {
 
         if (AppleLink) {
             try {
-                let AppleResult = await getSong(Search);
+                let AppleResult = await getApple(Search);
                 if (AppleResult) {
-                    const artist = AppleResult.type === 'playlist' ? AppleResult.creator : AppleResult.artist;
-                    let SearchResult = await this.search(
-                        `${artist} - ${AppleResult.title}`,
-                        SOptions,
-                        Queue
-                    );
-                    return SearchResult[0];
+                    if (AppleResult instanceof AppleTrack) {
+                        let SearchResult = await this.search(
+                            `${AppleResult.artist} - ${AppleResult.title}`,
+                            SOptions,
+                            Queue
+                        );
+                        return SearchResult[0];
+                    }
+
                 }
             } catch (e) {
                 throw DMPErrors.INVALID_APPLE;
@@ -258,18 +259,18 @@ export class Utils {
 
         if (ApplePlaylistLink) {
 
-            let AppleResultData = await getPlayList(Search).catch(() => null);
+            let AppleResultData = await getApple(Search).catch(() => null);
             if (!AppleResultData)
                 throw DMPErrors.INVALID_PLAYLIST;
-            if (AppleResultData.type === 'song')
+            if (!(AppleResultData instanceof AppleTrackList))
                 throw DMPErrors.INVALID_PLAYLIST;
 
             let AppleResult: RawPlaylist = {
-                name: AppleResultData.type === "playlist" ? AppleResultData.creator.name : AppleResultData.artist.name,
-                author: AppleResultData.type === "playlist" ? AppleResultData.creator.name : AppleResultData.artist.name,
+                name: 'Apple Playlist',
+                author: 'N/A',
                 url: Search,
                 songs: [],
-                type: AppleResultData.type
+                type: 'playlist'
             }
 
             AppleResult.songs = (
@@ -358,7 +359,7 @@ export class Utils {
             if (YouTubeResultData instanceof IPlaylist && YouTubeResultData.videoCount > 100 && (Limit === -1 || Limit > 100))
                 await YouTubeResultData.videos.next(Math.floor((Limit === -1 || Limit > YouTubeResultData.videoCount ? YouTubeResultData.videoCount : Limit - 1) / 100));
 
-            if (YouTubeResultData.videos instanceof PlaylistVideos){
+            if (YouTubeResultData.videos instanceof PlaylistVideos) {
                 //Needs VideoCompact[] for map to work below
                 YouTubeResultData.videos = YouTubeResultData.videos.items
             }
@@ -377,7 +378,7 @@ export class Utils {
                 song.data = SOptions.data;
                 return song;
             })
-                .filter((V: Song|null): V is Song => V !== null);
+                .filter((V: Song | null): V is Song => V !== null);
 
             if (YouTubeResult.songs.length === 0)
                 throw DMPErrors.INVALID_PLAYLIST;
