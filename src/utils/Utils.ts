@@ -12,12 +12,19 @@ import {
 } from "..";
 import fetch from 'isomorphic-unfetch';
 import YTSR, { Video } from 'ytsr';
-import { getApple, AppleTrack, AppleTrackList } from "./MD_Apple";
+import { getApple, AppleTrack, AppleTrackList, AppleLinkType } from "./MD_Apple";
 import { Client, Playlist as IPlaylist, Video as IVideo, PlaylistVideos, VideoCompact } from "youtubei";
 import { ChannelType, GuildChannel } from "discord.js";
 
 let YouTube = new Client();
-const { getData, getPreview, getTracks, getDetails } = require('spotify-url-info')(fetch)
+const { getData, getPreview } = require('spotify-url-info')(fetch)
+
+export enum ProviderList {
+    YOUTUBE,
+    SPOTIFY,
+    APPLE,
+    NONE
+}
 
 export class Utils {
     static regexList = {
@@ -28,8 +35,27 @@ export class Utils {
         YouTubePlaylistID: /[&?]list=([^&]+)/,
         Spotify: /https?:\/\/(?:embed\.|open\.)(?:spotify\.com\/)(?:track\/|\?uri=spotify:track:)((\w|-)+)(?:(?=\?)(?:[?&]foo=(\d*)(?=[&#]|$)|(?![?&]foo=)[^#])+)?(?=#|$)/,
         SpotifyPlaylist: /https?:\/\/(?:embed\.|open\.)(?:spotify\.com\/)(?:(album|playlist)\/|\?uri=spotify:playlist:)((\w|-)+)(?:(?=\?)(?:[?&]foo=(\d*)(?=[&#]|$)|(?![?&]foo=)[^#])+)?(?=#|$)/,
-        Apple: /https?:\/\/music\.apple\.com\/.+?\/.+?\/(.+?)\//, //TODO: FIX Regex here and not in MD_APPLE
-        ApplePlaylist: /https?:\/\/music\.apple\.com\/.+?\/.+?\/(.+?)\//,
+        Apple: /https?:\/\/music\.apple\.com\/.+?\/album\/.+?\/.+?\?i=([0-9]+)/,
+        ApplePlaylist: /https?:\/\/music\.apple\.com\/.+?\/(playlist|album)\//,
+    }
+
+    /**
+     * Checks if url is valid and gets which provider it is 
+     * @param url 
+     * @returns {boolean, ProviderList}
+     */
+    static isSongLink(url: string): [boolean, ProviderList] {
+        if (this.regexList.Spotify.test(url)) return [true, ProviderList.SPOTIFY]
+        if (this.regexList.YouTubeVideo.test(url)) return [true, ProviderList.YOUTUBE]
+        if (this.regexList.Apple.test(url)) return [true, ProviderList.APPLE]
+        return [false, ProviderList.NONE]
+    }
+
+    static isListLink(url: string): [boolean, ProviderList] {
+        if (this.regexList.SpotifyPlaylist.test(url)) return [true, ProviderList.SPOTIFY]
+        if (this.regexList.YouTubePlaylist.test(url)) return [true, ProviderList.YOUTUBE]
+        if (this.regexList.ApplePlaylist.test(url)) return [true, ProviderList.APPLE]
+        return [false, ProviderList.NONE]
     }
 
     /**
@@ -149,60 +175,64 @@ export class Utils {
      */
     static async link(Search: string, SOptions: PlayOptions = DefaultPlayOptions, Queue: Queue) {
 
-        let SpotifyLink =
-            this.regexList.Spotify.test(Search);
-        let YouTubeLink =
-            this.regexList.YouTubeVideo.test(Search);
-        let AppleLink =
-            this.regexList.Apple.test(Search);
+        const [isSong, provider] = this.isSongLink(Search)
+        if (!isSong) return null
 
-        if (AppleLink) {
-            try {
-                let AppleResult = await getApple(Search);
-                if (AppleResult) {
-                    if (AppleResult instanceof AppleTrack) {
-                        let SearchResult = await this.search(
-                            `${AppleResult.artist} - ${AppleResult.title}`,
-                            SOptions,
-                            Queue
-                        );
-                        return SearchResult[0];
+        switch (provider) {
+            case ProviderList.APPLE:
+                try {
+                    let AppleResult = await getApple(Search, AppleLinkType.Song);
+                    if (AppleResult) {
+                        if (AppleResult instanceof AppleTrack) {
+                            let SearchResult = await this.search(
+                                `${AppleResult.artist} - ${AppleResult.title}`,
+                                SOptions,
+                                Queue
+                            );
+                            return SearchResult[0];
+                        }
                     }
-
+                } catch (e) {
+                    throw DMPErrors.INVALID_APPLE;
                 }
-            } catch (e) {
-                throw DMPErrors.INVALID_APPLE;
-            }
-        } else if (SpotifyLink) {
-            try {
-                let SpotifyResult = await getPreview(Search);
-                let SearchResult = await this.search(
-                    `${SpotifyResult.artist} - ${SpotifyResult.title}`,
-                    SOptions,
-                    Queue
-                );
-                return SearchResult[0];
-            } catch (e) {
-                throw DMPErrors.INVALID_SPOTIFY;
-            }
-        } else if (YouTubeLink) {
-            let VideoID = this.parseVideo(Search);
-            if (!VideoID) throw DMPErrors.SEARCH_NULL;
-            YouTube = new Client();
-            let VideoResult = await YouTube.getVideo(VideoID) as IVideo;
-            if (!VideoResult) throw DMPErrors.SEARCH_NULL;
-            let VideoTimecode = this.parseVideoTimecode(Search);
+                break;
 
-            return new Song({
-                name: VideoResult.title,
-                url: Search,
-                duration: this.msToTime((VideoResult.duration ?? 0) * 1000),
-                author: VideoResult.channel.name,
-                isLive: VideoResult.isLiveContent,
-                thumbnail: VideoResult.thumbnails.best,
-                seekTime: SOptions.timecode && VideoTimecode ? Number(VideoTimecode) * 1000 : null,
-            } as RawSong, Queue, SOptions.requestedBy);
-        } else return null;
+            case ProviderList.SPOTIFY:
+                try {
+                    let SpotifyResult = await getPreview(Search);
+                    let SearchResult = await this.search(
+                        `${SpotifyResult.artist} - ${SpotifyResult.title}`,
+                        SOptions,
+                        Queue
+                    );
+                    return SearchResult[0];
+                } catch (e) {
+                    throw DMPErrors.INVALID_SPOTIFY;
+                }
+                break;
+
+            case ProviderList.YOUTUBE:
+                let VideoID = this.parseVideo(Search);
+                if (!VideoID) throw DMPErrors.SEARCH_NULL;
+                YouTube = new Client();
+                let VideoResult = await YouTube.getVideo(VideoID) as IVideo;
+                if (!VideoResult) throw DMPErrors.SEARCH_NULL;
+                let VideoTimecode = this.parseVideoTimecode(Search);
+
+                return new Song({
+                    name: VideoResult.title,
+                    url: Search,
+                    duration: this.msToTime((VideoResult.duration ?? 0) * 1000),
+                    author: VideoResult.channel.name,
+                    isLive: VideoResult.isLiveContent,
+                    thumbnail: VideoResult.thumbnails.best,
+                    seekTime: SOptions.timecode && VideoTimecode ? Number(VideoTimecode) * 1000 : null,
+                } as RawSong, Queue, SOptions.requestedBy);
+                break;
+
+            default:
+                return null
+        }
     }
 
     /**
@@ -250,146 +280,148 @@ export class Utils {
             return Search as Playlist;
 
         let Limit = SOptions.maxSongs ?? -1;
-        let SpotifyPlaylistLink =
-            this.regexList.SpotifyPlaylist.test(Search);
-        let YouTubePlaylistLink =
-            this.regexList.YouTubePlaylist.test(Search);
-        let ApplePlaylistLink =
-            this.regexList.ApplePlaylist.test(Search);
+        const [isList, Provider] = this.isListLink(Search);
+        if (!isList) throw DMPErrors.INVALID_PLAYLIST;
 
-        if (ApplePlaylistLink) {
+        switch (Provider) {
+            case ProviderList.APPLE:
+                let AppleResultData = await getApple(Search, AppleLinkType.Album).catch(() => null);
+                if (!AppleResultData)
+                    throw DMPErrors.INVALID_PLAYLIST;
+                if (!(AppleResultData instanceof AppleTrackList))
+                    throw DMPErrors.INVALID_PLAYLIST;
 
-            let AppleResultData = await getApple(Search).catch(() => null);
-            if (!AppleResultData)
-                throw DMPErrors.INVALID_PLAYLIST;
-            if (!(AppleResultData instanceof AppleTrackList))
-                throw DMPErrors.INVALID_PLAYLIST;
+                let AppleResult: RawPlaylist = {
+                    name: 'Apple Playlist',
+                    author: 'N/A',
+                    url: Search,
+                    songs: [],
+                    type: 'playlist'
+                }
 
-            let AppleResult: RawPlaylist = {
-                name: 'Apple Playlist',
-                author: 'N/A',
-                url: Search,
-                songs: [],
-                type: 'playlist'
-            }
-
-            AppleResult.songs = (
-                await Promise.all(
-                    AppleResultData.tracks.map(async (track, index) => {
-                        if (Limit !== -1 && index >= Limit)
-                            return null;
-                        const Result = await this.search(
-                            `${track.artist} - ${track.title}`,
-                            SOptions,
-                            Queue
-                        ).catch(() => null);
-                        if (Result && Result[0]) {
-                            Result[0].data = SOptions.data;
-                            return Result[0];
-                        } else return null;
-                    })
+                AppleResult.songs = (
+                    await Promise.all(
+                        AppleResultData.tracks.map(async (track, index) => {
+                            if (Limit !== -1 && index >= Limit)
+                                return null;
+                            const Result = await this.search(
+                                `${track.artist} - ${track.title}`,
+                                SOptions,
+                                Queue
+                            ).catch(() => null);
+                            if (Result && Result[0]) {
+                                Result[0].data = SOptions.data;
+                                return Result[0];
+                            } else return null;
+                        })
+                    )
                 )
-            )
-                .filter((V): V is Song => V !== null);
+                    .filter((V): V is Song => V !== null);
 
-            if (AppleResult.songs.length === 0)
-                throw DMPErrors.INVALID_PLAYLIST;
+                if (AppleResult.songs.length === 0)
+                    throw DMPErrors.INVALID_PLAYLIST;
 
-            if (SOptions.shuffle)
-                AppleResult.songs = this.shuffle(AppleResult.songs);
+                if (SOptions.shuffle)
+                    AppleResult.songs = this.shuffle(AppleResult.songs);
 
-            return new Playlist(AppleResult, Queue, SOptions.requestedBy);
-        } else if (SpotifyPlaylistLink) {
-            let SpotifyResultData = await getData(Search).catch(() => null);
-            if (!SpotifyResultData || !['playlist', 'album'].includes(SpotifyResultData.type))
-                throw DMPErrors.INVALID_PLAYLIST;
+                return new Playlist(AppleResult, Queue, SOptions.requestedBy);
+                break;
 
-            let SpotifyResult: RawPlaylist = {
-                name: SpotifyResultData.name,
-                author: SpotifyResultData.subtitle,
-                url: Search,
-                songs: [],
-                type: SpotifyResultData.type
-            }
+            case ProviderList.SPOTIFY:
+                let SpotifyResultData = await getData(Search).catch(() => null);
+                if (!SpotifyResultData || !['playlist', 'album'].includes(SpotifyResultData.type))
+                    throw DMPErrors.INVALID_PLAYLIST;
 
-            SpotifyResult.songs = (
-                await Promise.all(
-                    SpotifyResultData.trackList.map(async (track: any, index: number) => {
-                        if (Limit !== -1 && index >= Limit)
-                            return null;
-                        const Result = await this.search(
-                            `${track.subtitle} - ${track.title}`,
-                            SOptions,
-                            Queue
-                        ).catch(() => null);
-                        if (Result && Result[0]) {
-                            Result[0].data = SOptions.data;
-                            return Result[0];
-                        } else return null;
-                    })
+                let SpotifyResult: RawPlaylist = {
+                    name: SpotifyResultData.name,
+                    author: SpotifyResultData.subtitle,
+                    url: Search,
+                    songs: [],
+                    type: SpotifyResultData.type
+                }
+
+                SpotifyResult.songs = (
+                    await Promise.all(
+                        SpotifyResultData.trackList.map(async (track: any, index: number) => {
+                            if (Limit !== -1 && index >= Limit)
+                                return null;
+                            const Result = await this.search(
+                                `${track.subtitle} - ${track.title}`,
+                                SOptions,
+                                Queue
+                            ).catch(() => null);
+                            if (Result && Result[0]) {
+                                Result[0].data = SOptions.data;
+                                return Result[0];
+                            } else return null;
+                        })
+                    )
                 )
-            )
-                .filter((V): V is Song => V !== null);
+                    .filter((V): V is Song => V !== null);
 
-            if (SpotifyResult.songs.length === 0)
+                if (SpotifyResult.songs.length === 0)
+                    throw DMPErrors.INVALID_PLAYLIST;
+
+                if (SOptions.shuffle)
+                    SpotifyResult.songs = this.shuffle(SpotifyResult.songs);
+
+                return new Playlist(SpotifyResult, Queue, SOptions.requestedBy);
+                break;
+
+            case ProviderList.YOUTUBE:
+                let PlaylistID = this.parsePlaylist(Search);
+                if (!PlaylistID)
+                    throw DMPErrors.INVALID_PLAYLIST;
+
+                YouTube = new Client();
+                let YouTubeResultData = await YouTube.getPlaylist(PlaylistID);
+                if (!YouTubeResultData || Object.keys(YouTubeResultData).length === 0)
+                    throw DMPErrors.INVALID_PLAYLIST;
+
+                let YouTubeResult: RawPlaylist = {
+                    name: YouTubeResultData.title,
+                    author: YouTubeResultData instanceof IPlaylist ? YouTubeResultData.channel?.name ?? 'YouTube Mix' : 'YouTube Mix',
+                    url: Search,
+                    songs: [],
+                    type: 'playlist'
+                }
+
+                if (YouTubeResultData instanceof IPlaylist && YouTubeResultData.videoCount > 100 && (Limit === -1 || Limit > 100))
+                    await YouTubeResultData.videos.next(Math.floor((Limit === -1 || Limit > YouTubeResultData.videoCount ? YouTubeResultData.videoCount : Limit - 1) / 100));
+
+                if (YouTubeResultData.videos instanceof PlaylistVideos) {
+                    //Needs VideoCompact[] for map to work below
+                    YouTubeResultData.videos = YouTubeResultData.videos.items
+                }
+
+                YouTubeResult.songs = YouTubeResultData.videos.map((video: VideoCompact, index: number) => {
+                    if (Limit !== -1 && index >= Limit)
+                        return null;
+                    let song = new Song({
+                        name: video.title,
+                        url: `https://youtube.com/watch?v=${video.id}`,
+                        duration: this.msToTime((video.duration ?? 0) * 1000),
+                        author: video.channel!.name,
+                        isLive: video.isLive,
+                        thumbnail: video.thumbnails.best!,
+                    }, Queue, SOptions.requestedBy);
+                    song.data = SOptions.data;
+                    return song;
+                })
+                    .filter((V: Song | null): V is Song => V !== null);
+
+                if (YouTubeResult.songs.length === 0)
+                    throw DMPErrors.INVALID_PLAYLIST;
+
+                if (SOptions.shuffle)
+                    YouTubeResult.songs = this.shuffle(YouTubeResult.songs);
+
+                return new Playlist(YouTubeResult, Queue, SOptions.requestedBy);
+                break;
+
+            default:
                 throw DMPErrors.INVALID_PLAYLIST;
-
-            if (SOptions.shuffle)
-                SpotifyResult.songs = this.shuffle(SpotifyResult.songs);
-
-            return new Playlist(SpotifyResult, Queue, SOptions.requestedBy);
-        } else if (YouTubePlaylistLink) {
-            let PlaylistID = this.parsePlaylist(Search);
-            if (!PlaylistID)
-                throw DMPErrors.INVALID_PLAYLIST;
-
-            YouTube = new Client();
-            let YouTubeResultData = await YouTube.getPlaylist(PlaylistID);
-            if (!YouTubeResultData || Object.keys(YouTubeResultData).length === 0)
-                throw DMPErrors.INVALID_PLAYLIST;
-
-            let YouTubeResult: RawPlaylist = {
-                name: YouTubeResultData.title,
-                author: YouTubeResultData instanceof IPlaylist ? YouTubeResultData.channel?.name ?? 'YouTube Mix' : 'YouTube Mix',
-                url: Search,
-                songs: [],
-                type: 'playlist'
-            }
-
-            if (YouTubeResultData instanceof IPlaylist && YouTubeResultData.videoCount > 100 && (Limit === -1 || Limit > 100))
-                await YouTubeResultData.videos.next(Math.floor((Limit === -1 || Limit > YouTubeResultData.videoCount ? YouTubeResultData.videoCount : Limit - 1) / 100));
-
-            if (YouTubeResultData.videos instanceof PlaylistVideos) {
-                //Needs VideoCompact[] for map to work below
-                YouTubeResultData.videos = YouTubeResultData.videos.items
-            }
-
-            YouTubeResult.songs = YouTubeResultData.videos.map((video: VideoCompact, index: number) => {
-                if (Limit !== -1 && index >= Limit)
-                    return null;
-                let song = new Song({
-                    name: video.title,
-                    url: `https://youtube.com/watch?v=${video.id}`,
-                    duration: this.msToTime((video.duration ?? 0) * 1000),
-                    author: video.channel!.name,
-                    isLive: video.isLive,
-                    thumbnail: video.thumbnails.best!,
-                }, Queue, SOptions.requestedBy);
-                song.data = SOptions.data;
-                return song;
-            })
-                .filter((V: Song | null): V is Song => V !== null);
-
-            if (YouTubeResult.songs.length === 0)
-                throw DMPErrors.INVALID_PLAYLIST;
-
-            if (SOptions.shuffle)
-                YouTubeResult.songs = this.shuffle(YouTubeResult.songs);
-
-            return new Playlist(YouTubeResult, Queue, SOptions.requestedBy);
         }
-
-        throw DMPErrors.INVALID_PLAYLIST;
     }
 
     /**

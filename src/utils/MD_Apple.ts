@@ -1,6 +1,18 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
+/**
+ * Written to replace apple-music-metadata
+ */
 
+
+export enum AppleLinkType {
+    Song,
+    Album
+}
+
+/**
+ * Minimal class of what a track should contain
+ */
 export class AppleTrack {
     public artist: string;
     public title: string;
@@ -11,6 +23,9 @@ export class AppleTrack {
     }
 }
 
+/**
+ * Minimal class of what a Playlist should contain
+ */
 export class AppleTrackList {
     public tracks: AppleTrack[];
     public trackCount: number;
@@ -29,22 +44,20 @@ export class AppleTrackList {
     }
 }
 
-function linkType(url: string) {
-    if (RegExp(/https?:\/\/music\.apple\.com\/.+?\/album\/.+?\/.+?\?i=([0-9]+)/).test(url)) return "song";
-    return 'album'
-}
-
 /**
  * Expects a valid apple url
  * @param url 
+ * @param lt: AppleLinkType from caller
  */
-export async function getApple(url: string): Promise<AppleTrack | AppleTrackList | undefined> {
-    const lt = linkType(url);
+export async function getApple(url: string, lt: AppleLinkType): Promise<AppleTrack | AppleTrackList | undefined> {
     const page = await axios.get(url).then((res) => res.data).catch(() => undefined)
     if (!page) return undefined;
     const $ = cheerio.load(page);
     const scripts = $("script").toArray();
     let script_data = Object();
+    /**
+     * Finds all script tags -> finds embedded data -> parse from child
+     */
     for (let index = 0; index < scripts.length; index++) {
         const script = scripts[index];
         if (script!.attribs['id'] == 'serialized-server-data') {
@@ -60,6 +73,9 @@ export async function getApple(url: string): Promise<AppleTrack | AppleTrackList
         }
     }
     const trackList = new AppleTrackList();
+    /**
+     * From parsed JSON -> check all for track list -> create track for each track in JSON list
+     */
     for (let i = 0; i < script_data[0]['data']['sections'].length; i++) {
         const sections = script_data[0]['data']['sections'][i];
         if (sections['id'].includes('track-list - ')) {
@@ -69,12 +85,13 @@ export async function getApple(url: string): Promise<AppleTrack | AppleTrackList
         }
     }
     if (trackList.trackCount > 0) {
-        if (lt == 'song') return trackList.tracks[0]
-        if (lt == 'album') return trackList
+        if (lt == AppleLinkType.Song) return trackList.tracks[0]
+        if (lt == AppleLinkType.Album) return trackList
     }
     return undefined
 }
 
+//Interface to tell TS that children has data
 interface children {
     data: string
 }

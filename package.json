@@ -1,6 +1,6 @@
 {
   "name": "@jadestudios/discord-music-player",
-  "version": "9.1.1-az25-dev003",
+  "version": "9.1.1-az25",
   "description": "Complete framework to facilitate music commands using discord.js v13",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -31,7 +31,6 @@
   "dependencies": {
     "@discordjs/opus": "^0.9.0",
     "@discordjs/voice": "^0.16.1",
-    "apple-music-metadata": "^2.0.1",
     "axios": "^1.6.2",
     "axios-retry": "^3.9.1",
     "cheerio": "^1.0.0-rc.12",
