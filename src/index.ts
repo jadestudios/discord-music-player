@@ -6,5 +6,5 @@ export { ProgressBar } from "./managers/ProgressBar";
 export { DMPError, DMPErrors, DMPErrorMessages } from "./managers/DMPError";
 export { StreamConnection } from "./voice/StreamConnection";
 export { Utils } from "./utils/Utils";
-export { StreamFilters } from "./managers/Filters"
+export { StreamFilters } from "./managers/Filters";
 export * from "./types/types";
