@@ -35,8 +35,8 @@ export class Utils {
         YouTubePlaylistID: /[&?]list=([^&]+)/,
         Spotify: /https?:\/\/(?:embed\.|open\.)(?:spotify\.com\/)(?:track\/|\?uri=spotify:track:)((\w|-)+)(?:(?=\?)(?:[?&]foo=(\d*)(?=[&#]|$)|(?![?&]foo=)[^#])+)?(?=#|$)/,
         SpotifyPlaylist: /https?:\/\/(?:embed\.|open\.)(?:spotify\.com\/)(?:(album|playlist)\/|\?uri=spotify:playlist:)((\w|-)+)(?:(?=\?)(?:[?&]foo=(\d*)(?=[&#]|$)|(?![?&]foo=)[^#])+)?(?=#|$)/,
-        Apple: /https?:\/\/music\.apple\.com\/.+?\/album\/.+?\/.+?\?i=([0-9]+)/,
-        ApplePlaylist: /https?:\/\/music\.apple\.com\/.+?\/(playlist|album)\//,
+        Apple: /https?:\/\/music\.apple\.com\/[a-z]{2}\/album\/[\S]+?\/\d+?\?i=([0-9]+)/,
+        ApplePlaylist: /https?:\/\/music\.apple\.com\/[a-z]{2}\/(playlist|album)\//,
     }
 
     /**
