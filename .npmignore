@@ -10,3 +10,8 @@ tsconfig.json
 docs
 jsdoc.json
 dmp-ts.iml
+.vs
+.vscode
+obj
+test
+discord-music-player.*

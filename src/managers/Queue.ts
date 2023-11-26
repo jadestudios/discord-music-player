@@ -151,7 +151,7 @@ export class Queue<T = unknown> {
                 me?: GuildMember;
             };
             const me = _guild.me ? _guild.me : _guild.members.me!;
-            await me.voice.setSuppressed(false).catch(async _ => {
+            await me.voice.setSuppressed(false).catch(async (_: any) => {
                 return await channel!.guild.members.me!.voice.setRequestToSpeak(true).catch(() => null);
             });
         }
