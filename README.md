@@ -29,8 +29,8 @@ Just that Git will say that I am not behind on any commits.
 
 | Version | Status and Information|
 ---|---|
-az27 | Latest - Based on DMP 9.1.1
-az26 and below | Deprecated
+az28 | Latest - Based on DMP 9.1.1
+az27 and below | Deprecated
 
 
 ---

@@ -1,6 +1,6 @@
 {
   "name": "@jadestudios/discord-music-player",
-  "version": "9.1.1-az27",
+  "version": "9.1.1-az28",
   "description": "Complete framework to facilitate music commands using discord.js v13",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -31,8 +31,8 @@
   "dependencies": {
     "@discordjs/opus": "^0.9.0",
     "@discordjs/voice": "^0.16.1",
-    "axios": "^1.6.7",
-    "axios-retry": "^4.0.0",
+    "axios": "^1.6.8",
+    "axios-retry": "^4.1.0",
     "cheerio": "^1.0.0-rc.12",
     "domhandler": "^5.0.3",
     "ffmpeg-static": "^5.2.0",
@@ -42,7 +42,7 @@
     "play-dl": "^1.9.7",
     "prism-media": "^1.3.5",
     "spotify-url-info": "^3.2.13",
-    "youtubei": "^1.3.4",
+    "youtubei": "^1.4.0",
     "ytsr": "^3.8.4"
   },
   "devDependencies": {
