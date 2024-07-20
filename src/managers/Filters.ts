@@ -39,8 +39,8 @@ export function createFFmpegStream(stream: Readable, options?: FFmpegStreamOptio
     const transcoder = new FFmpeg({ args: args });
     transcoder.on("close", () => transcoder.destroy());
     stream.on("error", () => transcoder.destroy());
-    stream.pipe(transcoder);
-
+    //@ts-ignore :: Transcoder is pipeable, but is not 1:1 with WriteableStream
+    stream.pipe(transcoder); 
     return transcoder;
 }
 

@@ -13,8 +13,8 @@ import {
     entersState,
     StreamType,
     VoiceConnection,
+    VoiceConnectionDisconnectReason,
     VoiceConnectionStatus,
-    VoiceConnectionDisconnectReason
 } from "@discordjs/voice";
 import { StageChannel, VoiceChannel } from "discord.js";
 import { promisify } from 'util';
@@ -95,17 +95,20 @@ export class StreamConnection extends EventEmitter {
         this.player.on('stateChange', (oldState, newState) => {
             if (newState.status === AudioPlayerStatus.Idle && oldState.status !== AudioPlayerStatus.Idle) {
                 if (!this.paused) {
+                    //@ts-ignore :: Emit exists on EventEmitter, but TS is throwing a fit for type checking
                     this.emit('end', this.resource);
                     delete this.resource;
                     return;
                 }
             } else if (newState.status === AudioPlayerStatus.Playing) {
                 if (!this.paused) {
+                    //@ts-ignore
                     this.emit('start', this.resource);
                     return;
                 }
             }
         }).on('error', data => {
+            //@ts-ignore
             this.emit('error', data);
         });
 

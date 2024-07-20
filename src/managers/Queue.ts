@@ -1,6 +1,6 @@
 import { Guild, GuildChannelResolvable, GuildMember, StageChannel, VoiceChannel } from "discord.js";
 import { StreamConnection } from "../voice/StreamConnection";
-import { AudioResource, DiscordGatewayAdapterCreator, entersState, joinVoiceChannel, StreamType, VoiceConnectionStatus } from "@discordjs/voice";
+import { AudioResource, demuxProbe, DiscordGatewayAdapterCreator, entersState, joinVoiceChannel, StreamType, VoiceConnectionStatus } from "@discordjs/voice";
 import {
     DefaultPlayerOptions,
     DefaultPlaylistOptions,
@@ -20,7 +20,7 @@ import {
     Song,
     Utils
 } from "..";
-import { stream } from "play-dl";
+import ytdl from "@distube/ytdl-core";
 import { createFFmpegStream } from "./Filters";
 
 export class Queue<T = unknown> {
@@ -244,12 +244,14 @@ export class Queue<T = unknown> {
 
         let songLength = this.songs.length;
         if (!options?.immediate && songLength !== 0) {
+            //This is to add songs to the queue
             if (options?.index! >= 0 && ++options.index! <= songLength)
                 this.songs.splice(options.index!, 0, song);
             else this.songs.push(song);
             this.player.emit('songAdd', this, song);
             return song;
         } else if (!options?.immediate) {
+            //This is for the first song that is ever queued
             song._setFirst();
             if (options?.index! >= 0 && ++options.index! <= songLength)
                 this.songs.splice(options.index!, 0, song);
@@ -267,12 +269,10 @@ export class Queue<T = unknown> {
         let i = 0;
 
         while (!streamSong && i < 5) {
-            streamSong = await stream(song.url, {
-                seek: options.seek ? options.seek / 1000 : 0,
-                quality: quality!.toLowerCase() === 'low' ? 1 : 2,
-                discordPlayerCompatibility: song.filters ? true : false
-            }).catch(error => {
-                console.error(error)
+            streamSong = ytdl(song.url, {
+                filter: 'audioonly',
+                quality: quality!.toLowerCase() === "low" ? 'lowestaudio' : "highestaudio",
+                highWaterMark: 1 << 25
             });
             i++;
         }
@@ -291,14 +291,15 @@ export class Queue<T = unknown> {
             let resource: AudioResource<Song>;
 
             if (song.filters) {
-                resource = this.connection.createAudioStream(createFFmpegStream(streamSong.stream, {encoderArgs: song.filters, seek: options.seek}), {
+                resource = this.connection.createAudioStream(createFFmpegStream(streamSong, {encoderArgs: song.filters, seek: options.seek}), {
                     metadata: song,
                     inputType: StreamType.OggOpus
                 });
             } else {
-                resource = this.connection.createAudioStream(streamSong.stream, {
+                const {stream, type} = await demuxProbe(streamSong);
+                resource = this.connection.createAudioStream(stream, {
                     metadata: song,
-                    inputType: streamSong.type
+                    inputType: type
                 });
             }
 

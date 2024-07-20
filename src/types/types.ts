@@ -29,23 +29,15 @@ export interface PlayerOptions {
 
 /**
  * Play options
- * @typedef {object} PlayOptions
- * @param {string} [uploadDate] Search sort by Upload date
- * @param {string} [duration] Search sort by Duration
- * @param {string} [sortBy=relevance] Search sort by Sort by
+ * @typedef {object} PlayOption
  * @param {boolean} [timecode=false] If url with timecode (?t=) provided, will play from that moment
  * @param {number} [index] If the index was provided, it will add the song after the provided index in the Queue
  * @param {User} [requestedBy] The User who requested the Song
- * @param {string} [localAddress] Custom ipv4/ipv6 address
  */
 export interface PlayOptions {
-    uploadDate?: 'hour' | 'today' | 'week' | 'month' | 'year',
-    duration?: 'short' | 'long',
-    sortBy?: 'relevance' | 'date' | 'view count' | 'rating',
     timecode?: boolean,
     index?: number;
     requestedBy?: User,
-    localAddress?: string
 };
 
 /**
@@ -106,7 +98,6 @@ export const DefaultPlayerOptions: PlayerOptions = {
  * @param {boolean} [timecode=false] If url with timecode (?t=) provided, will play from that moment
  */
 export const DefaultPlayOptions: PlayOptions = {
-    sortBy: 'relevance',
     timecode: true //False defeats purpose of ?t=
 };
 
