@@ -244,12 +244,14 @@ export class Queue<T = unknown> {
 
         let songLength = this.songs.length;
         if (!options?.immediate && songLength !== 0) {
+            //This is to add songs to the queue
             if (options?.index! >= 0 && ++options.index! <= songLength)
                 this.songs.splice(options.index!, 0, song);
             else this.songs.push(song);
             this.player.emit('songAdd', this, song);
             return song;
         } else if (!options?.immediate) {
+            //This is for the first song that is ever queued
             song._setFirst();
             if (options?.index! >= 0 && ++options.index! <= songLength)
                 this.songs.splice(options.index!, 0, song);
