@@ -15,7 +15,9 @@ Just that Git will say that I am not behind on any commits.
 ---
 
 ### Major differences within this fork
-* Using Play-dl instead of ytdl-core
+* Using @distube/ytdl-core instead of ytdl-core
+* Using @distube/ytsr instead of node-ytsr
+* Built-in Apple Music link support
 * More search queries to ensure song is valid
 * Changed how seek works in regards of songs on repeat
 * Increased queue stability in case of failed searches
@@ -29,8 +31,8 @@ Just that Git will say that I am not behind on any commits.
 
 | Version | Status and Information|
 ---|---|
-az28 | Latest - Based on DMP 9.1.1
-az27 and below | Deprecated
+az29 | Latest - Based on DMP 9.1.1
+az28 and below | Deprecated
 
 
 ---
@@ -43,10 +45,10 @@ This package supports YouTube Videos & Playlists, Spotify Songs & Playlists, App
 
 ### Requirements:
 - [Discord.js v14 or v13](https://www.npmjs.com/package/discord.js),
-- [Node.JS v16](https://nodejs.org/),
+- [Node.JS v18](https://nodejs.org/),
 
 # Installation
-*Node.JS v16 or newer is required to run this module.*
+*Node.JS v18 or newer is required to run this module.*
 ```sh
 npm install --save @jadestudios/discord-music-player
 ```
