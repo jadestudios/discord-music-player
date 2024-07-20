@@ -1,6 +1,6 @@
 import { Guild, GuildChannelResolvable, GuildMember, StageChannel, VoiceChannel } from "discord.js";
 import { StreamConnection } from "../voice/StreamConnection";
-import { AudioResource, DiscordGatewayAdapterCreator, entersState, joinVoiceChannel, StreamType, VoiceConnectionStatus } from "@discordjs/voice";
+import { AudioResource, demuxProbe, DiscordGatewayAdapterCreator, entersState, joinVoiceChannel, StreamType, VoiceConnectionStatus } from "@discordjs/voice";
 import {
     DefaultPlayerOptions,
     DefaultPlaylistOptions,
@@ -20,7 +20,7 @@ import {
     Song,
     Utils
 } from "..";
-import { stream } from "play-dl";
+import ytdl from "@distube/ytdl-core";
 import { createFFmpegStream } from "./Filters";
 
 export class Queue<T = unknown> {
@@ -267,12 +267,10 @@ export class Queue<T = unknown> {
         let i = 0;
 
         while (!streamSong && i < 5) {
-            streamSong = await stream(song.url, {
-                seek: options.seek ? options.seek / 1000 : 0,
-                quality: quality!.toLowerCase() === 'low' ? 1 : 2,
-                discordPlayerCompatibility: song.filters ? true : false
-            }).catch(error => {
-                console.error(error)
+            streamSong = ytdl(song.url, {
+                filter: 'audioonly',
+                quality: quality!.toLowerCase() === "low" ? 'lowestaudio' : "highestaudio",
+                highWaterMark: 1 << 25
             });
             i++;
         }
@@ -291,14 +289,15 @@ export class Queue<T = unknown> {
             let resource: AudioResource<Song>;
 
             if (song.filters) {
-                resource = this.connection.createAudioStream(createFFmpegStream(streamSong.stream, {encoderArgs: song.filters, seek: options.seek}), {
+                resource = this.connection.createAudioStream(createFFmpegStream(streamSong, {encoderArgs: song.filters, seek: options.seek}), {
                     metadata: song,
                     inputType: StreamType.OggOpus
                 });
             } else {
-                resource = this.connection.createAudioStream(streamSong.stream, {
+                const {stream, type} = await demuxProbe(streamSong);
+                resource = this.connection.createAudioStream(stream, {
                     metadata: song,
-                    inputType: streamSong.type
+                    inputType: type
                 });
             }
 
