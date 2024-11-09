@@ -272,7 +272,8 @@ export class Queue<T = unknown> {
             streamSong = ytdl(song.url, {
                 filter: 'audioonly',
                 quality: quality!.toLowerCase() === "low" ? 'lowestaudio' : "highestaudio",
-                highWaterMark: 1 << 25
+                highWaterMark: 1 << 25,
+                playerClients: ["WEB_CREATOR", "IOS", "ANDROID", "WEB"]
             });
             i++;
         }
